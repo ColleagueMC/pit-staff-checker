@@ -1,48 +1,35 @@
+
 import requests
+import json
 import time
+import threading
 
-def get_uuid(api_key, username):
-    url = f"https://api.mojang.com/users/profiles/minecraft/{username}"
-    headers = {"Content-Type": "application/json"}
-    params = {"key": api_key}
-    response = requests.get(url, headers=headers, params=params)
-    if response.status_code == 200:
-        data = response.json()
-        return data["id"]
-    else:
-        return None
+API_KEY = "API KEY"
 
-def track_guild_xp(api_key, players):
-    url = "https://api.hypixel.net/guild"
-    headers = {"Content-Type": "application/json"}
-    params = {"key": api_key}
-    uuids = {}
-    guild_xp = {}
+players = ["player1", "player2", "player3", "player4"]
+
+def get_uuid(username):
+    response = requests.get(f"https://api.mojang.com/users/profiles/minecraft/{username}")
+    return response.json()['id']
+
+def check_player(uuid, username):
     while True:
-        for player in players:
-            if player not in uuids:
-                uuid = get_uuid(api_key, player)
-                if uuid:
-                    uuids[player] = uuid
-                else:
-                    print(f"Failed to get UUID for {player}")
-                    continue
-            params["player"] = uuids[player]
-            response = requests.get(url, headers=headers, params=params)
-            if response.status_code == 200:
-                data = response.json()
-                new_guild_xp = data["guild"]["exp"]
-                if player in guild_xp and new_guild_xp != guild_xp[player]:
-                    print(f"{player} xp changed")
-                guild_xp[player] = new_guild_xp
-            else:
-                print(f"Failed to get guild data for {player}")
+        url = f"https://api.hypixel.net/player?key={API_KEY}&uuid={uuid}"
+        response = requests.get(url)
+        data = json.loads(response.text)
+        initial_xp = data['player']['stats']['Pit']['profile']['xp']
 
-        time.sleep(120)  # Wait for 2 minutes
+        time.sleep(660)
 
-# Ask for API key and list of players
-api_key = input("Enter your API key: ")
-players = input("Enter a comma-separated list of players: ").split(",")
+        response = requests.get(url)
+        data = json.loads(response.text)
 
-# Track guild XP changes
-track_guild_xp(api_key, players)
+        current_xp = data['player']['stats']['Pit']['profile']['xp']
+
+        if current_xp != initial_xp:
+            print(f"{username} is online!")
+
+
+for player in players:
+    uuid = get_uuid(player)
+    threading.Thread(target=check_player, args=(uuid, player)).start()
